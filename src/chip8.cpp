@@ -84,8 +84,7 @@ void Chip8::emulate_cycle(){
                     pc += 2;
                     break;
                 case 0x00EE: // Returns from subroutine
-                    pc = stack[sp];
-                    sp--;
+                    pc = stack[--sp];
                     pc += 2;
                     break;
                 default:
