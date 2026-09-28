@@ -248,6 +248,8 @@ void Chip8::emulate_cycle(){
                         if(key[i] != 0){
                             v[(opcode & 0x0F00) >> 8] = i;
                             key_pressed = true;
+                            key[i] = 0;
+                            break;
                         }
                     }
                     pc += 2;
