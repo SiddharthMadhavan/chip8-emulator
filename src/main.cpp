@@ -135,14 +135,16 @@ int main(int argc, char** argv){
     
     bool running = true;
     while(running){
-        handle_input(chip8, running);
-        for(int i=0; i<10; i++){
-            chip8.emulate_cycle();
-        }
         
+        for(int i=0; i<10; i++){
+            handle_input(chip8, running);
+            chip8.emulate_cycle();
+            
+        }
         beeping = (chip8.get_sound_timer() > 0);
+        
         draw_graphics(renderer, chip8);
-        SDL_Delay(16); // 60 FPS with 16ms per frame
+        SDL_Delay(10); // 60 FPS with 16ms per frame
     }
     if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
     SDL_DestroyRenderer(renderer);
