@@ -38,6 +38,36 @@ Chip-8 is a virtual machine from the 1970s designed to make programming video ga
 ## Dependencies
 
 - SDL2 library
+- SDL2_ttf library (menus and text)
+
+## LAN multiplayer Pong
+
+Run the updated emulator from its project folder on both computers. Both must
+be connected to the same Wi-Fi/LAN.
+
+1. On the first computer, choose **Host Pong (LAN)**. It waits on TCP port **24808**.
+2. Find that computer's Wi-Fi IPv4 address: on Windows, run `ipconfig` and read
+   the IPv4 Address under the active Wireless LAN adapter (for example, `192.168.1.20`).
+3. On the second computer, choose **Join Pong (LAN)**, type that address, and press Enter.
+4. The match starts when the connection is ready. Both players use **W/S**:
+   the host moves the left paddle and the guest moves the right paddle.
+
+The host uses **Space** to pause/resume and **F2** to restart. **Esc** leaves the
+session on either computer. Host focus loss pauses the match; press Space after
+returning. Guest focus loss releases its paddle. Save/load and speed changes
+remain available only in offline games. The host needs `roms/Pong.ch8`; the
+guest receives the host's display and sound status without executing a ROM.
+
+If Windows Firewall prompts, allow the emulator on your private network.
+If joining fails, check the host address, TCP port 24808, and whether the Wi-Fi
+router isolates clients (common on guest networks). No port forwarding is needed.
+An inactive connection times out after five seconds; return to the menu to host/join again.
+For a one-computer test, run two instances and join `127.0.0.1`.
+
+Build on Windows with MinGW and SDL2/SDL2_ttf installed in the same toolchain:
+`make`. Winsock is linked automatically. `make test` runs loopback network,
+ROM-streaming, and headless SDL menu/session tests (ports 24808 through 24810).
+Close any hosted game before running tests.
 
 ### Installation
 

@@ -1,4 +1,5 @@
 #include "chip8.h"
+#include "lan_game.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
 #include <SDL2/SDL_error.h>
@@ -16,6 +17,8 @@
 #include <string>
 #include <filesystem>
 #include <cmath>
+#include <algorithm>
+#include <atomic>
 
 const int SCALE = 10; // Each pixel is 10x10 screen pixels
 const int WIDTH = 128*SCALE;
@@ -36,12 +39,12 @@ enum class Waveform {
 };
 
 struct AudioData {
-    bool beeping;
-    Waveform current_wave;
+    std::atomic<bool> beeping;
+    std::atomic<Waveform> current_wave;
 };
 
 // Keyboard mapping
-uint8_t keymap[16] = {
+SDL_Keycode keymap[16] = {
     SDLK_x, // 0
     SDLK_1, // 1
     SDLK_2, // 2
@@ -113,7 +116,7 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
             double angular_freq = 2.0 * PI * freq * time;
             int16_t value = 0;
             
-            switch(audio_data->current_wave) {
+            switch(audio_data->current_wave.load()) {
                 case Waveform::SQUARE:
                     value = std::sin(angular_freq) > 0 ? 3000 : -3000;
                     break;
@@ -177,6 +180,8 @@ std::string main_menu(
     bool& running
 ){
     std::vector<std::string> roms = get_roms();
+    std::sort(roms.begin(), roms.end());
+    roms.insert(roms.begin(), {"@host", "@join"});
 
     int selected = 0;
 
@@ -256,16 +261,20 @@ std::string main_menu(
         );
 
 
-        for(int i = 0; i < (int)roms.size(); i++){
+        const int first = std::max(0, selected - 6);
+        for(int i = first; i <= (int)roms.size() && i < first + 7; i++){
 
-            std::filesystem::path path(roms[i]);
+            std::string label = i == (int)roms.size() ? "Exit" :
+                roms[i] == "@host" ? "Host Pong (LAN)" :
+                roms[i] == "@join" ? "Join Pong (LAN)" :
+                std::filesystem::path(roms[i]).stem().string();
 
             draw_text(
                 renderer,
                 font,
-                path.stem().string(),
+                label,
                 200,
-                90 + i * 70,
+                90 + (i - first) * 70,
                 i == selected
                     ? yellow
                     : white
@@ -273,16 +282,7 @@ std::string main_menu(
         }
 
 
-        draw_text(
-            renderer,
-            font,
-            "Exit",
-            240,
-            90 + roms.size() * 70,
-            selected == (int)roms.size()
-                ? yellow
-                : white
-        );
+        draw_text(renderer, font, "Up/Down: select    Enter: play", 200, 590, white);
 
 
         SDL_RenderPresent(renderer);
@@ -418,7 +418,7 @@ void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int
                             break;
                         case 4:
                             audio_data.current_wave = static_cast<Waveform>(
-                                (static_cast<int>(audio_data.current_wave) + 1) % static_cast<int>(Waveform::COUNT)
+                                (static_cast<int>(audio_data.current_wave.load()) + 1) % static_cast<int>(Waveform::COUNT)
                             );
                             break;
                         case 5:
@@ -453,7 +453,11 @@ int main(int argc, char* argv[]){
         std::cerr << "TTF Error: " << TTF_GetError() << std::endl;
         return 1;
     }
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 50);
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
+    if (!font) {
+        std::cerr << "Font error: " << TTF_GetError() << std::endl;
+        TTF_Quit(); SDL_Quit(); return 1;
+    }
     // if(!font) {
     //    std::cerr << "Failed to load font" << std::endl;
     //     return 1;
@@ -513,6 +517,11 @@ int main(int argc, char* argv[]){
         if(selected_rom.empty())
             continue;
 
+        if (selected_rom == "@host" || selected_rom == "@join") {
+            play_lan(window, renderer, font, selected_rom == "@host", running, audio_data.beeping);
+            continue;
+        }
+
         chip8.initialise();
 
         chip8.load_rom(
@@ -563,6 +572,7 @@ int main(int argc, char* argv[]){
                 }
             }
             else {
+                audio_data.beeping = false;
                 draw_paused_graphics(renderer, font, selected_option, scroll_offset, chip8, themes[current_theme]);
             }
 
@@ -571,13 +581,15 @@ int main(int argc, char* argv[]){
                 SDL_Delay(frame_delay - frame_time);
             }
         }
-        
+        audio_data.beeping = false;
     }
 
     if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+    TTF_CloseFont(font);
+    TTF_Quit();
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
         return 0;
 }
