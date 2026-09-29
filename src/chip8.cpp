@@ -24,9 +24,29 @@ uint8_t chip8_fontset[80] = {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+void write_u16(std::ofstream& file, uint16_t value) {
+    uint8_t bytes[2] = {
+        static_cast<uint8_t>(value >> 8),
+        static_cast<uint8_t>(value & 0xFF)
+    };
+
+    file.write(reinterpret_cast<const char*>(bytes), 2);
+}
+
+void read_u16(std::ifstream& file, uint16_t& value) {
+    uint8_t bytes[2];
+
+    file.read(reinterpret_cast<char*>(bytes), 2);
+
+    value =
+        (static_cast<uint16_t>(bytes[0]) << 8) |
+        bytes[1];
+}
+
 Chip8::Chip8(){
     initialise();
 }
+
 
 void Chip8::initialise(){
     pc = 0x200;
@@ -71,6 +91,80 @@ void Chip8::load_rom(const std::string& filename){
 
     std::cout << "Loaded ROM: " << filename << std::endl;
 }
+
+bool Chip8::save_state(const std::string& filename) const {
+    std::ofstream file(filename, std::ios::binary);
+
+    if (!file)
+        return false;
+
+    file.write(
+        reinterpret_cast<const char*>(memory),
+        sizeof(memory)
+    );
+
+    file.write(
+        reinterpret_cast<const char*>(v),
+        sizeof(v)
+    );
+
+    write_u16(file, index);
+    write_u16(file, pc);
+
+    for (int i = 0; i < 16; i++)
+        write_u16(file, stack[i]);
+
+    file.put(static_cast<char>(sp));
+    file.put(static_cast<char>(delay_timer));
+    file.put(static_cast<char>(sound_timer));
+
+    file.write(
+        reinterpret_cast<const char*>(display),
+        sizeof(display)
+    );
+
+    return true;
+}
+
+bool Chip8::load_state(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+
+    if (!file)
+        return false;
+
+    file.read(
+        reinterpret_cast<char*>(memory),
+        sizeof(memory)
+    );
+
+    file.read(
+        reinterpret_cast<char*>(v),
+        sizeof(v)
+    );
+
+    read_u16(file, index);
+    read_u16(file, pc);
+
+    for (int i = 0; i < 16; i++)
+        read_u16(file, stack[i]);
+
+    sp = static_cast<uint8_t>(file.get());
+    delay_timer = static_cast<uint8_t>(file.get());
+    sound_timer = static_cast<uint8_t>(file.get());
+
+    file.read(
+        reinterpret_cast<char*>(display),
+        sizeof(display)
+    );
+
+    std::memset(key, 0, sizeof(key));
+
+    opcode = 0;
+    draw_flag = true;
+
+    return true;
+}
+
 
 void Chip8::emulate_cycle(){
     opcode = memory[pc] << 8 | memory[pc+1]; // 16-bit instruction
