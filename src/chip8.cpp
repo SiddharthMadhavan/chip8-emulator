@@ -100,7 +100,7 @@ void Chip8::emulate_cycle(){
             pc = opcode & 0x0FFF;
             break;
         case 0x2000: // 2XXX = Call subroutine at XXX
-            if(sp >= 17){
+            if(sp >= 16){
                 std::cerr << "Overflow!" << std::endl;
                 sp = 0;
                 break;
@@ -130,55 +130,77 @@ void Chip8::emulate_cycle(){
             pc += 2;
             break;
         case 0x8000: // Arithmetic operations
-            switch(opcode & 0x000F){ // Look only at last 4 bits
-                // Instruction is of the form 8XYN
-                case 0x0000: // v[x] = v[y]
-                    v[(opcode & 0x0F00) >> 8] = v[(opcode & 0x00F0) >> 4];
-                    pc += 2;
-                    break;
-                case 0x0001: // v[x] = v[x] | v[y]
-                    v[(opcode & 0x0F00) >> 8] |= v[(opcode & 0x00F0) >> 4];
-                    pc += 2;
-                    break;
-                case 0x0002: // v[x] = v[y] & v[y]
-                    v[(opcode & 0x0F00) >> 8] &= v[(opcode & 0x00F0) >> 4];
-                    pc += 2;
-                    break;
-                case 0x0003: // v[x] = v[y] ^ v[y]
-                    v[(opcode & 0x0F00) >> 8] ^= v[(opcode & 0x00F0) >> 4];
-                    pc += 2;
-                    break;
-                case 0x0004:{ // v[x] += v[y], v[F] = carry
-                    uint16_t sum = v[(opcode & 0x0F00) >> 8] + v[(opcode & 0x00F0) >> 4];
-                    v[0xF] = (sum > 0xFF) ? 1: 0;   
-                    v[(opcode & 0x0F00) >> 8] = sum & 0xFF;   
-                    pc += 2;          
+            {
+                uint8_t x = (opcode & 0x0F00) >> 8;
+                uint8_t y = (opcode & 0x00F0) >> 4;
+
+                switch(opcode & 0x000F){ // Look only at last 4 bits
+                    case 0x0000: // 8XY0: v[x] = v[y]
+                        v[x] = v[y];
+                        pc += 2;
+                        break;
+
+                    case 0x0001: // 8XY1: v[x] |= v[y]
+                        v[x] |= v[y];
+                        pc += 2;
+                        break;
+
+                    case 0x0002: // 8XY2: v[x] &= v[y]
+                        v[x] &= v[y];
+                        pc += 2;
+                        break;
+
+                    case 0x0003: // 8XY3: v[x] ^= v[y]
+                        v[x] ^= v[y];
+                        pc += 2;
+                        break;
+
+                    case 0x0004: { // 8XY4: v[x] += v[y], v[F] = carry
+                        uint16_t sum = v[x] + v[y];
+                        uint8_t carry = (sum > 0xFF) ? 1 : 0;
+                        v[x] = sum & 0xFF;  // Write result first
+                        v[0xF] = carry;     // Set flag last
+                        pc += 2;
+                        break;
+                    }
+
+                    case 0x0005: { // 8XY5: v[x] -= v[y], v[F] = NOT(borrow)
+                        uint8_t not_borrow = (v[x] >= v[y]) ? 1 : 0;
+                        v[x] -= v[y];       // Write result first
+                        v[0xF] = not_borrow;// Set flag last
+                        pc += 2;
+                        break;
+                    }
+
+                    case 0x0006: { // 8XY6: v[x] >>= 1, v[F] = LSB
+                        uint8_t lsb = v[x] & 0x1;
+                        v[x] >>= 1;         // Shift first
+                        v[0xF] = lsb;       // Set flag last
+                        pc += 2;
+                        break;
+                    }
+
+                    case 0x0007: { // 8XY7: v[x] = v[y] - v[x], v[F] = NOT(borrow)
+                        uint8_t not_borrow = (v[y] >= v[x]) ? 1 : 0;
+                        v[x] = v[y] - v[x]; // Write result first
+                        v[0xF] = not_borrow;// Set flag last
+                        pc += 2;
+                        break;
+                    }
+
+                    case 0x000E: { // 8XYE: v[x] <<= 1, v[F] = MSB
+                        uint8_t msb = (v[x] >> 7) & 0x1;
+                        v[x] <<= 1;         // Shift first
+                        v[0xF] = msb;       // Set flag last
+                        pc += 2;
+                        break;
+                    }
+
+                    default:
+                        std::cerr << "Unknown opcode: 0x" << std::hex << opcode << std::endl;
+                        pc += 2;
+                        break;
                 }
-                    break;
-                case 0x0005: // v[x] -= v[y], v[F] = NOT(borrow)
-                    v[0xF] = (v[(opcode & 0x0F00) >> 8] >= v[(opcode & 0x00F0) >> 4]) ? 1 : 0;
-                    v[(opcode & 0x0F00) >> 8] -= v[(opcode & 0x00F0) >> 4];
-                    pc += 2;
-                    break;
-                case 0x0006: // v[x] >>= 1, v[F] = LSB
-                    v[0xF] = v[(opcode & 0x0F00) >> 8] & 0x1;
-                    v[(opcode & 0x0F00) >> 8] >>= 1;
-                    pc += 2;
-                    break;
-                case 0x0007: // v[x] = v[y] - v[x], v[F] = NOT(borrow)
-                    v[0xF] = (v[(opcode & 0x00F0) >> 4] >= v[(opcode & 0x0F00) >> 8]) ? 1 : 0;
-                    v[(opcode & 0x0F00) >> 8] = v[(opcode & 0x00F0) >> 4] - v[(opcode & 0x0F00) >> 8];
-                    pc += 2;
-                    break;
-                case 0x000E: // v[x] <<= 1, v[F] = MSB
-                    v[0xF] = v[(opcode & 0x0F00) >> 8] >> 7;  // Save MSB
-                    v[(opcode & 0x0F00) >> 8] <<= 1;
-                    pc += 2;
-                    break;
-                default:
-                    std::cerr << "Unknown opcode: 0x" << std::hex << opcode << std::endl;
-                    pc += 2;
-                    break;
             }
             break;
         case 0x9000: // 9XY0 = Skip next instr. if v[x] != v[y]
@@ -261,7 +283,8 @@ void Chip8::emulate_cycle(){
                         }
                     }
                     if(!key_pressed)
-                        return;
+                        break;
+
                     pc += 2;
                 }
                     break;
