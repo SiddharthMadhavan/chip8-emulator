@@ -20,6 +20,12 @@ const int SCALE = 10; // Each pixel is 10x10 screen pixels
 const int WIDTH = 64*SCALE;
 const int HEIGHT = 32*SCALE;
 
+enum class AppState {
+    MAIN_MENU,
+    ROM_SELECT,
+    PLAYING
+};
+
 // Keyboard mapping
 uint8_t keymap[16] = {
     SDLK_x, // 0
@@ -57,10 +63,27 @@ std::vector<std::string> paused_options = {
     "Save",
     "Change Speed Mode",
     "Change Theme",
-    "Option5",
+    "Main Menu",
     "Option6",
     "Option7"
 };
+
+std::vector<std::string> get_roms(){
+    std::vector<std::string> roms;
+
+    if(!std::filesystem::exists("roms"))
+        return roms;
+
+    for(const auto& entry :
+        std::filesystem::directory_iterator("roms")){
+
+        if(entry.path().extension() == ".ch8"){
+            roms.push_back(entry.path().string());
+        }
+    }
+
+    return roms;
+}
 
 void audio_callback(void* userdata, uint8_t* stream, int len){
     static uint32_t sample_index = 0;
@@ -79,6 +102,160 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
             sample_index = 0;
         }
     }
+}
+
+void draw_text(
+    SDL_Renderer* renderer,
+    TTF_Font* font,
+    const std::string& text,
+    int x,
+    int y,
+    SDL_Color colour
+){
+    SDL_Surface* surface =
+        TTF_RenderText_Solid(font, text.c_str(), colour);
+
+    if(!surface)
+        return;
+
+    SDL_Texture* texture =
+        SDL_CreateTextureFromSurface(renderer, surface);
+
+    if(texture){
+        SDL_Rect dest = {
+            x,
+            y,
+            surface->w,
+            surface->h
+        };
+
+        SDL_RenderCopy(renderer, texture, NULL, &dest);
+        SDL_DestroyTexture(texture);
+    }
+
+    SDL_FreeSurface(surface);
+}
+
+std::string main_menu(
+    SDL_Renderer* renderer,
+    TTF_Font* font,
+    bool& running
+){
+    std::vector<std::string> roms = get_roms();
+
+    int selected = 0;
+
+    bool menu_running = true;
+
+    while(menu_running && running){
+
+        SDL_Event event;
+
+        while(SDL_PollEvent(&event)){
+
+            if(event.type == SDL_QUIT){
+                running = false;
+                return "";
+            }
+
+            if(event.type == SDL_KEYDOWN){
+
+                if(event.key.keysym.sym == SDLK_UP ||
+                   event.key.keysym.sym == SDLK_w){
+
+                    selected--;
+
+                    if(selected < 0)
+                        selected = roms.size();
+                }
+
+                else if(event.key.keysym.sym == SDLK_DOWN ||
+                        event.key.keysym.sym == SDLK_s){
+
+                    selected++;
+
+                    if(selected > (int)roms.size())
+                        selected = 0;
+                }
+
+                else if(event.key.keysym.sym == SDLK_RETURN){
+
+                    if(selected == (int)roms.size()){
+                        running = false;
+                        return "";
+                    }
+
+                    return roms[selected];
+                }
+
+                else if(event.key.keysym.sym == SDLK_ESCAPE){
+
+                    running = false;
+                    return "";
+                }
+            }
+        }
+                SDL_SetRenderDrawColor(
+            renderer,
+            0, 0, 0, 255
+        );
+
+        SDL_RenderClear(renderer);
+
+        SDL_Color white = {
+            255, 255, 255, 255
+        };
+
+        SDL_Color yellow = {
+            255, 255, 0, 255
+        };
+
+
+        draw_text(
+            renderer,
+            font,
+            "CHIP-8 EMULATOR",
+            200,
+            30,
+            white
+        );
+
+
+        for(int i = 0; i < (int)roms.size(); i++){
+
+            std::filesystem::path path(roms[i]);
+
+            draw_text(
+                renderer,
+                font,
+                path.stem().string(),
+                240,
+                90 + i * 40,
+                i == selected
+                    ? yellow
+                    : white
+            );
+        }
+
+
+        draw_text(
+            renderer,
+            font,
+            "Exit",
+            240,
+            90 + roms.size() * 40,
+            selected == (int)roms.size()
+                ? yellow
+                : white
+        );
+
+
+        SDL_RenderPresent(renderer);
+
+        SDL_Delay(16);
+    }
+
+    return "";
 }
 
 void draw_graphics(SDL_Renderer* renderer, Chip8& chip8, const ColourTheme& theme){
@@ -144,14 +321,19 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll, const std::string& save_file, int& current_theme, int& speed_level){
+void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int& selected,int& scroll, const std::string& save_file, int& current_theme, int& speed_level){
     SDL_Event event;
     int max_options = paused_options.size();
 
     while(SDL_PollEvent(&event)){
-        if(event.type == SDL_QUIT) running = false;
+        if(event.type == SDL_QUIT) {
+            running = false;
+            game_running = false;
+        }
         if(event.type == SDL_KEYDOWN){
-            if(event.key.keysym.sym == SDLK_ESCAPE) running = false;
+            if(event.key.keysym.sym == SDLK_ESCAPE){
+                game_running = false;
+            }
             if(event.key.keysym.sym == SDLK_SPACE) {
                 paused = !paused;
                 selected = 0;
@@ -191,7 +373,10 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                             current_theme = (current_theme + 1) % themes.size();
                             chip8.draw_flag = true;
                             break;
-
+                        case 4:
+                            paused = false;
+                            game_running = false;
+                            break;
                     }
                 }
             }
@@ -209,11 +394,9 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
     }
 }
 
-int main(int argc, char** argv){
-    if(argc < 2){
-        std::cerr << "Usage: " << argv[0] << " <ROM file>" << std::endl;
-        return 1;
-    }
+int main(int argc, char* argv[]){
+    (void)argc;
+    (void)argv;
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0){
         std::cerr << "SDL Error: " << SDL_GetError() << std::endl;
         return 1;
@@ -263,59 +446,90 @@ int main(int argc, char** argv){
     }
 
     Chip8 chip8;
-    chip8.load_rom(argv[1]);
 
-    std::filesystem::path rom_path(argv[1]);
+    std::string current_rom;
+    std::string save_file;
 
-    std::string game_name = rom_path.stem().string();
-    std::string save_file = "saves/" + game_name + "_save.ch8state";
+    std::vector<std::string> roms = get_roms();
+
     
     bool running = true;
-    bool paused = false;
     const Uint32 frame_delay = 1000 / 60;
 
     while(running){
-        Uint32 frame_start = SDL_GetTicks();
-        handle_input(chip8, running, paused, selected_option, scroll_offset, save_file, current_theme, speed_level);
-        if(!paused){    
-            int IPF = 10; 
-            switch(speed_level) {
-                case 0:
-                    IPF = 5;
-                    break;
-                case 1:
-                    IPF = 10;
-                    break;
-                case 2:
-                    IPF = 25;
-                    break;
-            }
-            for(int i=0; i<IPF; i++){
-                chip8.emulate_cycle();
-            }
-            
-            beeping = (chip8.get_sound_timer() > 0);
-            chip8.update_timers();
+        std::string selected_rom =main_menu(renderer,font,running);
 
-            // Only redraw if a draw opcode actually altered screen state
-            if (chip8.draw_flag) {
-                draw_graphics(renderer, chip8, themes[current_theme]);
-                chip8.draw_flag = false;
+        if(!running)
+            break;
+
+        if(selected_rom.empty())
+            continue;
+
+        chip8.initialise();
+
+        chip8.load_rom(
+            selected_rom
+        );
+
+        std::filesystem::path rom_path(selected_rom);
+
+        std::string game_name = rom_path.stem().string();
+
+        std::string save_file ="saves/" + game_name +"_save.ch8state";
+
+        bool game_running = true;
+        bool paused = false;
+
+        selected_option = 0;
+        scroll_offset = 0;
+
+        chip8.draw_flag = true;
+
+        while(game_running && running){
+            Uint32 frame_start = SDL_GetTicks();
+            handle_input(chip8, running, game_running, paused, selected_option, scroll_offset, save_file, current_theme, speed_level);
+            if(!paused){    
+                int IPF = 10; 
+                switch(speed_level) {
+                    case 0:
+                        IPF = 5;
+                        break;
+                    case 1:
+                        IPF = 10;
+                        break;
+                    case 2:
+                        IPF = 25;
+                        break;
+                }
+                for(int i=0; i<IPF; i++){
+                    chip8.emulate_cycle();
+                }
+                
+                beeping = (chip8.get_sound_timer() > 0);
+                chip8.update_timers();
+
+                // Only redraw if a draw opcode actually altered screen state
+                if (chip8.draw_flag) {
+                    draw_graphics(renderer, chip8, themes[current_theme]);
+                    chip8.draw_flag = false;
+                }
+            }
+            else {
+                draw_paused_graphics(renderer, font, selected_option, scroll_offset, chip8, themes[current_theme]);
+            }
+
+            Uint32 frame_time = SDL_GetTicks() - frame_start;
+            if (frame_time < frame_delay) {
+                SDL_Delay(frame_delay - frame_time);
             }
         }
-        else {
-            draw_paused_graphics(renderer, font, selected_option, scroll_offset, chip8, themes[current_theme]);
-        }
-
-        Uint32 frame_time = SDL_GetTicks() - frame_start;
-        if (frame_time < frame_delay) {
-            SDL_Delay(frame_delay - frame_time);
-        }
+        
     }
-    if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
 
-    return 0;
+    if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+
+        return 0;
 }

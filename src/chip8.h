@@ -13,7 +13,8 @@ class Chip8{
         bool draw_flag; // When we need to redraw the screen;
         bool save_state(const std::string& filename) const;
         bool load_state(const std::string& filename);
-        
+        void initialise();
+
         uint8_t display[64*32];
         uint8_t key[16]; // Keyboard of 16 keys
         uint8_t get_sound_timer() const {return sound_timer;} // For getting the value of sound timer
@@ -27,7 +28,7 @@ class Chip8{
         uint8_t delay_timer; // Counts down at 60Hz
         uint8_t sound_timer; // Beeps when greater than 0, counts down at 60Hz
         uint16_t opcode; // Current instruction
-        void initialise(); // Initialises everything
+         // Initialises everything
         void load_fonts(); // Loads font (0-9, A-F)
 };
 
