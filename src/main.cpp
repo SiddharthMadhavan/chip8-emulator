@@ -138,9 +138,9 @@ int main(int argc, char** argv){
 
     while(running){
         Uint32 frame_start = SDL_GetTicks();
-
+        handle_input(chip8, running);
         for(int i=0; i<10; i++){
-            handle_input(chip8, running);
+            
             chip8.emulate_cycle();
         }
         
