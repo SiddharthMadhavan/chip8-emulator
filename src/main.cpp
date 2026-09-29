@@ -134,17 +134,29 @@ int main(int argc, char** argv){
     chip8.load_rom(argv[1]);
     
     bool running = true;
+    const Uint32 frame_delay = 1000 / 60;
+
     while(running){
-        
+        Uint32 frame_start = SDL_GetTicks();
+
         for(int i=0; i<10; i++){
             handle_input(chip8, running);
             chip8.emulate_cycle();
-            
         }
-        beeping = (chip8.get_sound_timer() > 0);
         
-        draw_graphics(renderer, chip8);
-        SDL_Delay(10); // 60 FPS with 16ms per frame
+        beeping = (chip8.get_sound_timer() > 0);
+        chip8.update_timers();
+
+        // Only redraw if a draw opcode actually altered screen state
+        if (chip8.draw_flag) {
+            draw_graphics(renderer, chip8);
+            chip8.draw_flag = false;
+        }
+
+        Uint32 frame_time = SDL_GetTicks() - frame_start;
+        if (frame_time < frame_delay) {
+            SDL_Delay(frame_delay - frame_time);
+        }
     }
     if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
     SDL_DestroyRenderer(renderer);
