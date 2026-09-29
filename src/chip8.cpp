@@ -177,6 +177,9 @@ bool Chip8::load_state(const std::string& filename) {
     delay_timer = static_cast<uint8_t>(file.get());
     sound_timer = static_cast<uint8_t>(file.get());
 
+    high_res = static_cast<bool>(file.get());
+    file.read(reinterpret_cast<char*>(rpl), sizeof(rpl));
+    
     file.read(
         reinterpret_cast<char*>(display),
         sizeof(display)

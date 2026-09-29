@@ -15,6 +15,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <cmath>
 
 const int SCALE = 10; // Each pixel is 10x10 screen pixels
 const int WIDTH = 128*SCALE;
@@ -24,6 +25,19 @@ enum class AppState {
     MAIN_MENU,
     ROM_SELECT,
     PLAYING
+};
+
+enum class Waveform { 
+    SQUARE, 
+    SINE, 
+    TRIANGLE, 
+    SAWTOOTH, 
+    COUNT // Used to wrap around the options
+};
+
+struct AudioData {
+    bool beeping;
+    Waveform current_wave;
 };
 
 // Keyboard mapping
@@ -63,9 +77,8 @@ std::vector<std::string> paused_options = {
     "Save",
     "Change Speed Mode",
     "Change Theme",
-    "Main Menu",
-    "Option6",
-    "Option7"
+    "Change Waveform",
+    "Main Menu"
 };
 
 std::vector<std::string> get_roms(){
@@ -88,16 +101,38 @@ std::vector<std::string> get_roms(){
 void audio_callback(void* userdata, uint8_t* stream, int len){
     static uint32_t sample_index = 0;
     int16_t* audio_buffer = (int16_t*) stream;
-    int samples = len/2;
+    int samples = len / 2;
 
-    bool* beeping = (bool*) userdata;
-    for(int i=0; i<samples; i++){
-        if(*beeping){
-            // Generating 440Hz sqaure wave
-            int16_t value = ((sample_index++ / 100) % 2) ? 3000 : -3000;
+    AudioData* audio_data = (AudioData*) userdata;
+    const double PI = 3.14159265358979323846;
+    
+    for(int i = 0; i < samples; i++){
+        if(audio_data->beeping){
+            double time = (double)sample_index / 44100.0;
+            double freq = 440.0; // 440Hz pitch
+            double angular_freq = 2.0 * PI * freq * time;
+            int16_t value = 0;
+            
+            switch(audio_data->current_wave) {
+                case Waveform::SQUARE:
+                    value = std::sin(angular_freq) > 0 ? 3000 : -3000;
+                    break;
+                case Waveform::SINE:
+                    value = 3000 * std::sin(angular_freq);
+                    break;
+                case Waveform::TRIANGLE:
+                    value = 3000 * (2.0 / PI) * std::asin(std::sin(angular_freq));
+                    break;
+                case Waveform::SAWTOOTH:
+                    value = 3000 * (2.0 * std::fmod(time * freq, 1.0) - 1.0);
+                    break;
+                default:
+                    value = 0;
+            }
             audio_buffer[i] = value;
+            sample_index++;
         }
-        else{
+        else {
             audio_buffer[i] = 0; // Silence
             sample_index = 0;
         }
@@ -329,7 +364,7 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int& selected,int& scroll, const std::string& save_file, int& current_theme, int& speed_level){
+void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int& selected,int& scroll, const std::string& save_file, int& current_theme, int& speed_level, AudioData& audio_data){
     SDL_Event event;
     int max_options = paused_options.size();
 
@@ -382,6 +417,11 @@ void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int
                             chip8.draw_flag = true;
                             break;
                         case 4:
+                            audio_data.current_wave = static_cast<Waveform>(
+                                (static_cast<int>(audio_data.current_wave) + 1) % static_cast<int>(Waveform::COUNT)
+                            );
+                            break;
+                        case 5:
                             paused = false;
                             game_running = false;
                             break;
@@ -425,7 +465,8 @@ int main(int argc, char* argv[]){
     int speed_level = 1;
 
     // Audio setup
-    bool beeping = false;
+    AudioData audio_data = {false, Waveform::SQUARE};
+
     SDL_AudioSpec want, have;
     SDL_zero(want);
     want.freq = 44100;
@@ -433,7 +474,7 @@ int main(int argc, char* argv[]){
     want.channels = 1;
     want.samples = 2048;
     want.callback = audio_callback;
-    want.userdata = &beeping;
+    want.userdata = &audio_data; 
 
     SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if(audio_device == 0) std::cerr << "Failed to open audio: " << SDL_GetError() << std::endl;
@@ -460,7 +501,6 @@ int main(int argc, char* argv[]){
 
     std::vector<std::string> roms = get_roms();
 
-    
     bool running = true;
     const Uint32 frame_delay = 1000 / 60;
 
@@ -495,7 +535,7 @@ int main(int argc, char* argv[]){
 
         while(game_running && running){
             Uint32 frame_start = SDL_GetTicks();
-            handle_input(chip8, running, game_running, paused, selected_option, scroll_offset, save_file, current_theme, speed_level);
+            handle_input(chip8, running, game_running, paused, selected_option, scroll_offset, save_file, current_theme, speed_level, audio_data);
             if(!paused){    
                 int IPF = 10; 
                 switch(speed_level) {
@@ -513,7 +553,7 @@ int main(int argc, char* argv[]){
                     chip8.emulate_cycle();
                 }
                 
-                beeping = (chip8.get_sound_timer() > 0);
+                audio_data.beeping = (chip8.get_sound_timer() > 0);
                 chip8.update_timers();
 
                 // Only redraw if a draw opcode actually altered screen state

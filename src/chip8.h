@@ -19,7 +19,7 @@ class Chip8{
         bool high_res;
         uint8_t key[16]; // Keyboard of 16 keys
         uint8_t get_sound_timer() const {return sound_timer;} // For getting the value of sound timer
-        //void initialise(); // Initialises everything
+         // Initialises everything
         
     private:
         uint8_t memory[4096]; // Memory of 4KB
