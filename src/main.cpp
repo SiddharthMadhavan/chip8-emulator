@@ -215,7 +215,7 @@ std::string main_menu(
             renderer,
             font,
             "CHIP-8 EMULATOR",
-            200,
+            450,
             30,
             white
         );
@@ -229,8 +229,8 @@ std::string main_menu(
                 renderer,
                 font,
                 path.stem().string(),
-                240,
-                90 + i * 40,
+                200,
+                90 + i * 70,
                 i == selected
                     ? yellow
                     : white
@@ -243,7 +243,7 @@ std::string main_menu(
             font,
             "Exit",
             240,
-            90 + roms.size() * 40,
+            90 + roms.size() * 70,
             selected == (int)roms.size()
                 ? yellow
                 : white
@@ -318,7 +318,7 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
             SDL_Surface* surface = TTF_RenderText_Solid(font, paused_options[actual_index].c_str(), text_color);
             if (surface) {
                 SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-                SDL_Rect dest = { 50, 50 + (i * 40), surface->w, surface->h }; 
+                SDL_Rect dest = { 50, 50 + (i * 70), surface->w, surface->h }; 
                 SDL_RenderCopy(renderer, texture, NULL, &dest);
                 SDL_FreeSurface(surface);
                 SDL_DestroyTexture(texture);
@@ -413,7 +413,7 @@ int main(int argc, char* argv[]){
         std::cerr << "TTF Error: " << TTF_GetError() << std::endl;
         return 1;
     }
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 25);
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 50);
     // if(!font) {
     //    std::cerr << "Failed to load font" << std::endl;
     //     return 1;
