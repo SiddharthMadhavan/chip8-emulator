@@ -11,6 +11,9 @@
 #include <SDL2/SDL_video.h>
 #include <cstdint>
 #include <iostream>
+#include <SDL2/SDL_ttf.h>
+#include <vector>
+#include <string>
 
 const int SCALE = 10; // Each pixel is 10x10 screen pixels
 const int WIDTH = 64*SCALE;
@@ -34,6 +37,16 @@ uint8_t keymap[16] = {
     SDLK_r, // D
     SDLK_f, // E
     SDLK_v  // F
+};
+
+std::vector<std::string> paused_options = {
+    "Load",
+    "Save",
+    "Option3",
+    "Option4",
+    "Option5",
+    "Option6",
+    "Option7"
 };
 
 void audio_callback(void* userdata, uint8_t* stream, int len){
@@ -72,14 +85,55 @@ void draw_graphics(SDL_Renderer* renderer, Chip8& chip8){
     SDL_RenderPresent(renderer);
 }
 
-void draw_paused_graphics(SDL_Renderer* renderer) {
+void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, int scroll, Chip8& chip8) {
+    // Redraw the underlying game frame first
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+    
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    for(int y = 0; y < 32; y++){
+        for(int x = 0; x < 64; x++){
+            if(chip8.display[x + (y*64)] == 1){
+                SDL_Rect rect = {x*SCALE, y*SCALE, SCALE, SCALE};
+                SDL_RenderFillRect(renderer, &rect);
+            }
+        }
+    }
+
+    // Draw the dark semi-transparent layer
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 220);
+    SDL_Rect full_screen = {0, 0, WIDTH, HEIGHT};
+    SDL_RenderFillRect(renderer, &full_screen);
+
+    if (font) {
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Color yellow = {255, 255, 0, 255}; 
+
+        int max_items = std::min(5, (int)paused_options.size() - scroll);
+
+        for(int i = 0; i < max_items; i++) {
+            int actual_index = scroll + i;
+            SDL_Color text_color = (actual_index == selected) ? yellow : white;
+            
+            SDL_Surface* surface = TTF_RenderText_Solid(font, paused_options[actual_index].c_str(), text_color);
+            if (surface) {
+                SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+                SDL_Rect dest = { 50, 50 + (i * 40), surface->w, surface->h }; 
+                SDL_RenderCopy(renderer, texture, NULL, &dest);
+                SDL_FreeSurface(surface);
+                SDL_DestroyTexture(texture);
+            }
+        }
+    }
+
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8, bool& running, bool& paused){
+void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll){
     SDL_Event event;
+    int max_options = paused_options.size();
+
 
     while(SDL_PollEvent(&event)){
         if(event.type == SDL_QUIT) running = false;
@@ -87,8 +141,24 @@ void handle_input(Chip8& chip8, bool& running, bool& paused){
             if(event.key.keysym.sym == SDLK_ESCAPE) running = false;
             if(event.key.keysym.sym == SDLK_SPACE) paused = !paused;
             // Check which Chip-8 key was pressed
-            for(int i=0; i<16; i++){
-                if(event.key.keysym.sym == keymap[i]) chip8.key[i] = 1;
+            if(paused) {
+                if(event.key.keysym.sym == SDLK_w) {
+                    if(selected > 0) {
+                        selected--;
+                        if(selected < scroll) scroll = selected;
+                    }
+                }
+                else if(event.key.keysym.sym == SDLK_s) {
+                    if(selected < max_options - 1) {
+                        selected++;
+                        if(selected >= scroll + 5) scroll = selected - 4;
+                    }
+                }
+            }
+            else {
+                for(int i=0; i<16; i++){
+                    if(event.key.keysym.sym == keymap[i]) chip8.key[i] = 1;
+                }
             }
         }
         if(event.type == SDL_KEYUP){
@@ -108,6 +178,19 @@ int main(int argc, char** argv){
         std::cerr << "SDL Error: " << SDL_GetError() << std::endl;
         return 1;
     }
+    if(TTF_Init() == -1) {
+        std::cerr << "TTF Error: " << TTF_GetError() << std::endl;
+        return 1;
+    }
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 25);
+    // if(!font) {
+    //    std::cerr << "Failed to load font" << std::endl;
+    //     return 1;
+    // }
+    
+    int selected_option = 0;
+    int scroll_offset = 0;
+
     // Audio setup
     bool beeping = false;
     SDL_AudioSpec want, have;
@@ -146,7 +229,7 @@ int main(int argc, char** argv){
 
     while(running){
         Uint32 frame_start = SDL_GetTicks();
-        handle_input(chip8, running, paused);
+        handle_input(chip8, running, paused, selected_option, scroll_offset);
         if(!paused){        
             for(int i=0; i<10; i++){
                 chip8.emulate_cycle();
@@ -162,7 +245,7 @@ int main(int argc, char** argv){
             }
         }
         else {
-            draw_paused_graphics(renderer);
+            draw_paused_graphics(renderer, font, selected_option, scroll_offset, chip8);
         }
 
         Uint32 frame_time = SDL_GetTicks() - frame_start;
