@@ -157,11 +157,11 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                 else if(event.key.keysym.sym == SDLK_a) {
                     switch(selected) {
                         case 0:
-                            // load
+                            chip8.load_state("save.ch8state");
                             paused = false;
                             break;
                         case 1:
-                            //save
+                            chip8.save_state("save.ch8state");
                             break;
                         case 2:
                             //colour change
