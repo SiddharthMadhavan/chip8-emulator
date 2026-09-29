@@ -160,19 +160,19 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
             } 
             // Check which Chip-8 key was pressed
             if(paused) {
-                if(event.key.keysym.sym == SDLK_w) {
+                if(event.key.keysym.sym == SDLK_w || event.key.keysym.sym == SDLK_UP) {
                     if(selected > 0) {
                         selected--;
                         if(selected < scroll) scroll = selected;
                     }
                 }
-                else if(event.key.keysym.sym == SDLK_s) {
+                else if(event.key.keysym.sym == SDLK_s || event.key.keysym.sym == SDLK_DOWN) {
                     if(selected < max_options - 1) {
                         selected++;
                         if(selected >= scroll + 5) scroll = selected - 4;
                     }
                 }
-                else if(event.key.keysym.sym == SDLK_a) {
+                else if(event.key.keysym.sym == SDLK_a || event.key.keysym.sym == SDLK_RETURN) {
                     switch(selected) {
                         case 0:
                             chip8.load_state(save_file);
