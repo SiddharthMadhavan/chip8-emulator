@@ -72,13 +72,20 @@ void draw_graphics(SDL_Renderer* renderer, Chip8& chip8){
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8, bool& running){
+void draw_paused_graphics(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+}
+
+void handle_input(Chip8& chip8, bool& running, bool& paused){
     SDL_Event event;
 
     while(SDL_PollEvent(&event)){
         if(event.type == SDL_QUIT) running = false;
         if(event.type == SDL_KEYDOWN){
             if(event.key.keysym.sym == SDLK_ESCAPE) running = false;
+            if(event.key.keysym.sym == SDLK_SPACE) paused = !paused;
             // Check which Chip-8 key was pressed
             for(int i=0; i<16; i++){
                 if(event.key.keysym.sym == keymap[i]) chip8.key[i] = 1;
@@ -134,23 +141,28 @@ int main(int argc, char** argv){
     chip8.load_rom(argv[1]);
     
     bool running = true;
+    bool paused = false;
     const Uint32 frame_delay = 1000 / 60;
 
     while(running){
         Uint32 frame_start = SDL_GetTicks();
-        handle_input(chip8, running);
-        for(int i=0; i<10; i++){
+        handle_input(chip8, running, paused);
+        if(!paused){        
+            for(int i=0; i<10; i++){
+                chip8.emulate_cycle();
+            }
             
-            chip8.emulate_cycle();
-        }
-        
-        beeping = (chip8.get_sound_timer() > 0);
-        chip8.update_timers();
+            beeping = (chip8.get_sound_timer() > 0);
+            chip8.update_timers();
 
-        // Only redraw if a draw opcode actually altered screen state
-        if (chip8.draw_flag) {
-            draw_graphics(renderer, chip8);
-            chip8.draw_flag = false;
+            // Only redraw if a draw opcode actually altered screen state
+            if (chip8.draw_flag) {
+                draw_graphics(renderer, chip8);
+                chip8.draw_flag = false;
+            }
+        }
+        else {
+            draw_paused_graphics(renderer);
         }
 
         Uint32 frame_time = SDL_GetTicks() - frame_start;
