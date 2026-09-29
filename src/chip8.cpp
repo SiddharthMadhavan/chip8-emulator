@@ -147,7 +147,7 @@ void Chip8::emulate_cycle(){
                 }
                     break;
                 case 0x0005: // v[x] -= v[y], v[F] = NOT(borrow)
-                    v[0xF] = (v[(opcode & 0x0F00) >> 8] > v[(opcode & 0x00F0) >> 4]) ? 1 : 0;
+                    v[0xF] = (v[(opcode & 0x0F00) >> 8] >= v[(opcode & 0x00F0) >> 4]) ? 1 : 0;
                     v[(opcode & 0x0F00) >> 8] -= v[(opcode & 0x00F0) >> 4];
                     pc += 2;
                     break;
@@ -157,7 +157,7 @@ void Chip8::emulate_cycle(){
                     pc += 2;
                     break;
                 case 0x0007: // v[x] = v[y] - v[x], v[F] = NOT(borrow)
-                    v[0xF] = (v[(opcode & 0x00F0) >> 4] > v[(opcode & 0x0F00) >> 8]) ? 1 : 0;
+                    v[0xF] = (v[(opcode & 0x00F0) >> 4] >= v[(opcode & 0x0F00) >> 8]) ? 1 : 0;
                     v[(opcode & 0x0F00) >> 8] = v[(opcode & 0x00F0) >> 4] - v[(opcode & 0x0F00) >> 8];
                     pc += 2;
                     break;
@@ -248,10 +248,11 @@ void Chip8::emulate_cycle(){
                         if(key[i] != 0){
                             v[(opcode & 0x0F00) >> 8] = i;
                             key_pressed = true;
-                            key[i] = 0;
                             break;
                         }
                     }
+                    if(!key_pressed)
+                        return;
                     pc += 2;
                 }
                     break;
