@@ -84,6 +84,7 @@ void Chip8::emulate_cycle(){
                     pc += 2;
                     break;
                 case 0x00EE: // Returns from subroutine
+                    if(sp == 0) break;
                     pc = stack[--sp];
                     pc += 2;
                     break;
@@ -96,6 +97,7 @@ void Chip8::emulate_cycle(){
             pc = opcode & 0x0FFF;
             break;
         case 0x2000: // 2XXX = Call subroutine at XXX
+            if(sp >= 17) break;
             stack[sp] = pc;
             sp++;
             pc = opcode & 0x0FFF;
