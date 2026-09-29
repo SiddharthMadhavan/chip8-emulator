@@ -154,6 +154,20 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                         if(selected >= scroll + 5) scroll = selected - 4;
                     }
                 }
+                else if(event.key.keysym.sym == SDLK_a) {
+                    switch(selected) {
+                        case 0:
+                            // load
+                            paused = false;
+                            break;
+                        case 1:
+                            //save
+                            break;
+                        case 2:
+                            //colour change
+                            break;
+                    }
+                }
             }
             else {
                 for(int i=0; i<16; i++){
