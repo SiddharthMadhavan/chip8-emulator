@@ -55,8 +55,8 @@ const std::vector<ColourTheme> themes = {
 std::vector<std::string> paused_options = {
     "Load",
     "Save",
+    "Change Speed Mode",
     "Change Theme",
-    "Option4",
     "Option5",
     "Option6",
     "Option7"
@@ -144,7 +144,7 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll, const std::string& save_file, int& current_theme){
+void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll, const std::string& save_file, int& current_theme, int& speed_level){
     SDL_Event event;
     int max_options = paused_options.size();
 
@@ -185,9 +185,13 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                             chip8.save_state(save_file);
                             break;
                         case 2:
+                            speed_level = (speed_level + 1) % 3;
+                            break;
+                        case 3:
                             current_theme = (current_theme + 1) % themes.size();
                             chip8.draw_flag = true;
                             break;
+
                     }
                 }
             }
@@ -227,6 +231,7 @@ int main(int argc, char** argv){
     int selected_option = 0;
     int scroll_offset = 0;
     int current_theme = 0;
+    int speed_level = 1;
 
     // Audio setup
     bool beeping = false;
@@ -271,9 +276,21 @@ int main(int argc, char** argv){
 
     while(running){
         Uint32 frame_start = SDL_GetTicks();
-        handle_input(chip8, running, paused, selected_option, scroll_offset, save_file, current_theme);
-        if(!paused){        
-            for(int i=0; i<10; i++){
+        handle_input(chip8, running, paused, selected_option, scroll_offset, save_file, current_theme, speed_level);
+        if(!paused){    
+            int IPF = 10; 
+            switch(speed_level) {
+                case 0:
+                    IPF = 5;
+                    break;
+                case 1:
+                    IPF = 10;
+                    break;
+                case 2:
+                    IPF = 25;
+                    break;
+            }
+            for(int i=0; i<IPF; i++){
                 chip8.emulate_cycle();
             }
             
