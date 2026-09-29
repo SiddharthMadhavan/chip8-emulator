@@ -14,6 +14,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <vector>
 #include <string>
+#include <filesystem>
 
 const int SCALE = 10; // Each pixel is 10x10 screen pixels
 const int WIDTH = 64*SCALE;
@@ -130,10 +131,9 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
     SDL_RenderPresent(renderer);
 }
 
-void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll){
+void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int& scroll, const std::string& save_file){
     SDL_Event event;
     int max_options = paused_options.size();
-
 
     while(SDL_PollEvent(&event)){
         if(event.type == SDL_QUIT) running = false;
@@ -157,11 +157,11 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                 else if(event.key.keysym.sym == SDLK_a) {
                     switch(selected) {
                         case 0:
-                            chip8.load_state("save.ch8state");
+                            chip8.load_state(save_file);
                             paused = false;
                             break;
                         case 1:
-                            chip8.save_state("save.ch8state");
+                            chip8.save_state(save_file);
                             break;
                         case 2:
                             //colour change
@@ -236,6 +236,11 @@ int main(int argc, char** argv){
 
     Chip8 chip8;
     chip8.load_rom(argv[1]);
+
+    std::filesystem::path rom_path(argv[1]);
+
+    std::string game_name = rom_path.stem().string();
+    std::string save_file = "saves/" + game_name + "_save.ch8state";
     
     bool running = true;
     bool paused = false;
@@ -243,7 +248,7 @@ int main(int argc, char** argv){
 
     while(running){
         Uint32 frame_start = SDL_GetTicks();
-        handle_input(chip8, running, paused, selected_option, scroll_offset);
+        handle_input(chip8, running, paused, selected_option, scroll_offset, save_file);
         if(!paused){        
             for(int i=0; i<10; i++){
                 chip8.emulate_cycle();
