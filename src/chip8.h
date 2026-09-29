@@ -15,9 +15,12 @@ class Chip8{
         bool load_state(const std::string& filename);
         void initialise();
 
-        uint8_t display[64*32];
+        uint8_t display[128*64];
+        bool high_res;
         uint8_t key[16]; // Keyboard of 16 keys
         uint8_t get_sound_timer() const {return sound_timer;} // For getting the value of sound timer
+        void initialise(); // Initialises everything
+        
     private:
         uint8_t memory[4096]; // Memory of 4KB
         uint8_t v[16]; // 16 registers, V0 to VF
@@ -28,7 +31,7 @@ class Chip8{
         uint8_t delay_timer; // Counts down at 60Hz
         uint8_t sound_timer; // Beeps when greater than 0, counts down at 60Hz
         uint16_t opcode; // Current instruction
-         // Initialises everything
+        uint8_t rpl[8]; // RPL registers
         void load_fonts(); // Loads font (0-9, A-F)
 };
 

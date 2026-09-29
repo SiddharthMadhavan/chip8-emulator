@@ -17,8 +17,8 @@
 #include <filesystem>
 
 const int SCALE = 10; // Each pixel is 10x10 screen pixels
-const int WIDTH = 64*SCALE;
-const int HEIGHT = 32*SCALE;
+const int WIDTH = 128*SCALE;
+const int HEIGHT = 64*SCALE;
 
 enum class AppState {
     MAIN_MENU,
@@ -265,10 +265,14 @@ void draw_graphics(SDL_Renderer* renderer, Chip8& chip8, const ColourTheme& them
     SDL_RenderClear(renderer);
     // Drawing white pixels
     SDL_SetRenderDrawColor(renderer, theme.fg.r, theme.fg.g, theme.fg.b, 255);
-    for(int y=0; y<32; y++){
-        for(int x=0; x<64; x++){
-            if(chip8.display[x + (y*64)] == 1){
-                SDL_Rect rect = {x*SCALE, y*SCALE, SCALE, SCALE};
+    int screen_width = chip8.high_res ? 128 : 64;
+    int screen_height = chip8.high_res ? 64 : 32;
+    int current_scale = chip8.high_res ? SCALE : SCALE * 2; // Doubled scale for 64x32 to fill window
+
+    for(int y = 0; y < screen_height; y++){
+        for(int x = 0; x < screen_width; x++){
+            if(chip8.display[x + (y * screen_width)] == 1){
+                SDL_Rect rect = {x * current_scale, y * current_scale, current_scale, current_scale};
                 SDL_RenderFillRect(renderer, &rect);
             }
         }
@@ -282,10 +286,14 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
     SDL_RenderClear(renderer);
     
     SDL_SetRenderDrawColor(renderer, theme.fg.r, theme.fg.g, theme.fg.b, 255);
-    for(int y = 0; y < 32; y++){
-        for(int x = 0; x < 64; x++){
-            if(chip8.display[x + (y*64)] == 1){
-                SDL_Rect rect = {x*SCALE, y*SCALE, SCALE, SCALE};
+    int screen_width = chip8.high_res ? 128 : 64;
+    int screen_height = chip8.high_res ? 64 : 32;
+    int current_scale = chip8.high_res ? SCALE : SCALE * 2; // Doubled scale for 64x32 to fill window
+
+    for(int y = 0; y < screen_height; y++){
+        for(int x = 0; x < screen_width; x++){
+            if(chip8.display[x + (y * screen_width)] == 1){
+                SDL_Rect rect = {x * current_scale, y * current_scale, current_scale, current_scale};
                 SDL_RenderFillRect(renderer, &rect);
             }
         }
