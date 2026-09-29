@@ -107,7 +107,7 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
     int samples = len / 2;
 
     AudioData* audio_data = (AudioData*) userdata;
-    const double PI = 3.14159265358979323846;
+    const double PI = 3.14159;
     
     for(int i = 0; i < samples; i++){
         if(audio_data->beeping){
@@ -142,30 +142,16 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
     }
 }
 
-void draw_text(
-    SDL_Renderer* renderer,
-    TTF_Font* font,
-    const std::string& text,
-    int x,
-    int y,
-    SDL_Color colour
-){
-    SDL_Surface* surface =
-        TTF_RenderText_Solid(font, text.c_str(), colour);
+void draw_text(SDL_Renderer* renderer, TTF_Font* font, const std::string& text, int x, int y, SDL_Color colour){
+    SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), colour);
 
     if(!surface)
         return;
 
-    SDL_Texture* texture =
-        SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     if(texture){
-        SDL_Rect dest = {
-            x,
-            y,
-            surface->w,
-            surface->h
-        };
+        SDL_Rect dest = { x, y, surface->w, surface->h};
 
         SDL_RenderCopy(renderer, texture, NULL, &dest);
         SDL_DestroyTexture(texture);
@@ -174,21 +160,16 @@ void draw_text(
     SDL_FreeSurface(surface);
 }
 
-std::string main_menu(
-    SDL_Renderer* renderer,
-    TTF_Font* font,
-    bool& running
-){
+std::string main_menu(SDL_Renderer* renderer, TTF_Font* font, TTF_Font* large_font, bool& running) {
     std::vector<std::string> roms = get_roms();
     std::sort(roms.begin(), roms.end());
-    roms.insert(roms.begin(), {"@host", "@join"});
+    roms.insert(roms.begin(), {"Host Pong (LAN)", "Join Pong (LAN)"});
 
     int selected = 0;
 
     bool menu_running = true;
 
     while(menu_running && running){
-
         SDL_Event event;
 
         while(SDL_PollEvent(&event)){
@@ -199,92 +180,51 @@ std::string main_menu(
             }
 
             if(event.type == SDL_KEYDOWN){
-
-                if(event.key.keysym.sym == SDLK_UP ||
-                   event.key.keysym.sym == SDLK_w){
-
+                if(event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w){
                     selected--;
-
                     if(selected < 0)
                         selected = roms.size();
                 }
 
-                else if(event.key.keysym.sym == SDLK_DOWN ||
-                        event.key.keysym.sym == SDLK_s){
-
+                else if(event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s){
                     selected++;
 
                     if(selected > (int)roms.size())
                         selected = 0;
                 }
 
-                else if(event.key.keysym.sym == SDLK_RETURN){
-
+                else if(event.key.keysym.sym == SDLK_RETURN) {
                     if(selected == (int)roms.size()){
                         running = false;
                         return "";
                     }
-
                     return roms[selected];
                 }
 
-                else if(event.key.keysym.sym == SDLK_ESCAPE){
-
+                else if(event.key.keysym.sym == SDLK_ESCAPE) {
                     running = false;
                     return "";
                 }
             }
         }
-                SDL_SetRenderDrawColor(
-            renderer,
-            0, 0, 0, 255
-        );
 
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        SDL_Color white = {
-            255, 255, 255, 255
-        };
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Color yellow = {255, 255, 0, 255};
 
-        SDL_Color yellow = {
-            255, 255, 0, 255
-        };
-
-
-        draw_text(
-            renderer,
-            font,
-            "CHIP-8 EMULATOR",
-            450,
-            30,
-            white
-        );
+        draw_text(renderer, large_font, "CHIP-8 EMULATOR", 400, 5, white);
 
 
         const int first = std::max(0, selected - 6);
         for(int i = first; i <= (int)roms.size() && i < first + 7; i++){
 
-            std::string label = i == (int)roms.size() ? "Exit" :
-                roms[i] == "@host" ? "Host Pong (LAN)" :
-                roms[i] == "@join" ? "Join Pong (LAN)" :
-                std::filesystem::path(roms[i]).stem().string();
+            std::string label = i == (int)roms.size() ? "Exit" : std::filesystem::path(roms[i]).stem().string();
 
-            draw_text(
-                renderer,
-                font,
-                label,
-                200,
-                90 + (i - first) * 70,
-                i == selected
-                    ? yellow
-                    : white
-            );
+            draw_text( renderer, font, label, 200, 100 + (i - first) * 70, i == selected? yellow : white);
         }
-
-
-        draw_text(renderer, font, "Up/Down: select    Enter: play", 200, 590, white);
-
-
+        draw_text(renderer, font, "Up/Down: select    Enter: play", 320, 590, white);
         SDL_RenderPresent(renderer);
 
         SDL_Delay(16);
@@ -383,7 +323,6 @@ void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int
                 scroll = 0;
                 if (!paused) chip8.draw_flag = true;
             } 
-            // Check which Chip-8 key was pressed
             if(paused) {
                 if(event.key.keysym.sym == SDLK_w || event.key.keysym.sym == SDLK_UP) {
                     if(selected > 0) {
@@ -429,6 +368,7 @@ void handle_input(Chip8& chip8,bool& running,bool& game_running,bool& paused,int
                 }
             }
             else {
+                // Check which Chip-8 key was pressed
                 for(int i=0; i<16; i++){
                     if(event.key.keysym.sym == keymap[i]) chip8.key[i] = 1;
                 }
@@ -453,15 +393,13 @@ int main(int argc, char* argv[]){
         std::cerr << "TTF Error: " << TTF_GetError() << std::endl;
         return 1;
     }
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
-    if (!font) {
-        std::cerr << "Font error: " << TTF_GetError() << std::endl;
-        TTF_Quit(); SDL_Quit(); return 1;
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 27);
+    TTF_Font* large_font = TTF_OpenFont("fonts/font.ttf", 50);
+
+    if(!font) {
+       std::cerr << "Failed to load font" << std::endl;
+        return 1;
     }
-    // if(!font) {
-    //    std::cerr << "Failed to load font" << std::endl;
-    //     return 1;
-    // }
     
     int selected_option = 0;
     int scroll_offset = 0;
@@ -481,8 +419,10 @@ int main(int argc, char* argv[]){
     want.userdata = &audio_data; 
 
     SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-    if(audio_device == 0) std::cerr << "Failed to open audio: " << SDL_GetError() << std::endl;
-    else SDL_PauseAudioDevice(audio_device, 0);
+    if(audio_device == 0) 
+        std::cerr << "Failed to open audio: " << SDL_GetError() << std::endl;
+    else 
+        SDL_PauseAudioDevice(audio_device, 0);
 
     SDL_Window* window = SDL_CreateWindow("Chip-8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     if(!window){
@@ -509,7 +449,7 @@ int main(int argc, char* argv[]){
     const Uint32 frame_delay = 1000 / 60;
 
     while(running){
-        std::string selected_rom =main_menu(renderer,font,running);
+        std::string selected_rom = main_menu(renderer, font, large_font, running);
 
         if(!running)
             break;
@@ -517,8 +457,8 @@ int main(int argc, char* argv[]){
         if(selected_rom.empty())
             continue;
 
-        if (selected_rom == "@host" || selected_rom == "@join") {
-            play_lan(window, renderer, font, selected_rom == "@host", running, audio_data.beeping);
+        if (selected_rom == "Host Pong (LAN)" || selected_rom == "Join Pong (LAN)") {
+            play_lan(window, renderer, font, selected_rom == "Host Pong (LAN)", running, audio_data.beeping);
             continue;
         }
 
@@ -591,5 +531,5 @@ int main(int argc, char* argv[]){
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-        return 0;
+    return 0;
 }

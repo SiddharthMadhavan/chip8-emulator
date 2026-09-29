@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 TARGET = chip8
-SOURCES = src/main.cpp src/chip8.cpp
+SOURCES = src/main.cpp src/chip8.cpp src/network.cpp src/lan_game.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 
 all: $(TARGET)
