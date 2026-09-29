@@ -177,6 +177,8 @@ void handle_input(Chip8& chip8, bool& running, bool& paused, int& selected, int&
                         case 0:
                             chip8.load_state(save_file);
                             paused = false;
+                            selected = 0;
+                            scroll = 0;
                             chip8.draw_flag = true;
                             break;
                         case 1:
