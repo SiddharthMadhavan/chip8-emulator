@@ -13,7 +13,6 @@ struct Frame {
     bool paused = false;
 };
 
-// One peer per session. All operations are nonblocking; call poll regularly.
 class Connection {
 public:
     Connection();
@@ -34,4 +33,4 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
-} // namespace lan
+}

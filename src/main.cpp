@@ -286,6 +286,15 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
 
         int max_items = std::min(5, (int)paused_options.size() - scroll);
 
+        {
+        SDL_Surface* surface = TTF_RenderText_Solid(font, "_______________________________________________", font_colour);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_Rect dest = {75, 30, surface->w, surface->h }; 
+        SDL_RenderCopy(renderer, texture, NULL, &dest);
+        SDL_FreeSurface(surface);
+        SDL_DestroyTexture(texture);
+        }
+
         for(int i = 0; i < max_items; i++) {
             int actual_index = scroll + i;
             SDL_Color text_color = (actual_index == selected) ? yellow : font_colour;
@@ -293,11 +302,19 @@ void draw_paused_graphics(SDL_Renderer* renderer, TTF_Font* font, int selected, 
             SDL_Surface* surface = TTF_RenderText_Solid(font, paused_options[actual_index].c_str(), text_color);
             if (surface) {
                 SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-                SDL_Rect dest = { 50, 50 + (i * 70), surface->w, surface->h }; 
+                SDL_Rect dest = { 100, 100 + (i * 100), surface->w, surface->h }; 
                 SDL_RenderCopy(renderer, texture, NULL, &dest);
                 SDL_FreeSurface(surface);
                 SDL_DestroyTexture(texture);
             }
+        }
+        {
+        SDL_Surface* surface = TTF_RenderText_Solid(font, "_______________________________________________", font_colour);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_Rect dest = {75, 546, surface->w, surface->h }; 
+        SDL_RenderCopy(renderer, texture, NULL, &dest);
+        SDL_FreeSurface(surface);
+        SDL_DestroyTexture(texture);
         }
     }
 
@@ -424,7 +441,7 @@ int main(int argc, char* argv[]){
     else 
         SDL_PauseAudioDevice(audio_device, 0);
 
-    SDL_Window* window = SDL_CreateWindow("Chip-8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow("CHIP-8 EMULATOR", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     if(!window){
         std::cerr << "Window error: " << SDL_GetError() << std::endl;
         SDL_Quit();
@@ -458,7 +475,7 @@ int main(int argc, char* argv[]){
             continue;
 
         if (selected_rom == "Host Pong (LAN)" || selected_rom == "Join Pong (LAN)") {
-            play_lan(window, renderer, font, selected_rom == "Host Pong (LAN)", running, audio_data.beeping);
+            play_lan(window, renderer, font,large_font, selected_rom == "Host Pong (LAN)", running, audio_data.beeping);
             continue;
         }
 

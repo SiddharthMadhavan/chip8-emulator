@@ -10,6 +10,7 @@ void draw_text(SDL_Renderer*, TTF_Font*, const std::string&, int, int, SDL_Color
 
 namespace {
 const SDL_Color white{240, 240, 240, 255}, yellow{255, 220, 70, 255};
+
 void screen(SDL_Renderer* renderer, TTF_Font* font, const std::string& title,
             const std::string& detail, const std::string& help) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -20,7 +21,7 @@ void screen(SDL_Renderer* renderer, TTF_Font* font, const std::string& title,
     draw_text(renderer, font, help, 50, 370, white);
     SDL_RenderPresent(renderer);
 }
-bool enter_address(SDL_Renderer* renderer, TTF_Font* font, bool& running, std::string& address) {
+bool enter_address(SDL_Renderer* renderer, TTF_Font* font, TTF_Font* large_font, bool& running, std::string& address) {
     SDL_StartTextInput();
     bool editing = true, accepted = false;
     while (editing && running) {
@@ -39,8 +40,15 @@ bool enter_address(SDL_Renderer* renderer, TTF_Font* font, bool& running, std::s
                     if (((c >= '0' && c <= '9') || c == '.') && address.size() < 15) address += c;
             }
         }
-        screen(renderer, font, "Join Pong - host IPv4 address", address + "_",
-               "Enter: connect    Esc: back");
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        draw_text(renderer, large_font, "JOIN LOBBY", 470, 50, yellow);
+        draw_text(renderer, font, "ENTER HOST IP ADDRESS : " + address + "_", 100, 200, white);
+        draw_text(renderer, font, "ENTER: CONNECT", 25, 580, white);
+        draw_text(renderer, font, "ESC: EXIT", 1100, 580, white);
+        SDL_RenderPresent(renderer);
         SDL_Delay(16);
     }
     SDL_StopTextInput();
@@ -55,7 +63,7 @@ void show_error(SDL_Renderer* renderer, TTF_Font* font, bool& running, const std
             if (event.type == SDL_KEYDOWN && !event.key.repeat &&
                 (event.key.keysym.sym == SDLK_ESCAPE || event.key.keysym.sym == SDLK_RETURN)) waiting = false;
         }
-        screen(renderer, font, "LAN Pong", error, "Enter or Esc: return to menu");
+        screen(renderer, font, "JOIN LOBY", error, "Enter or Esc: return to menu");
         SDL_Delay(16);
     }
 }
@@ -81,21 +89,29 @@ void draw_frame(SDL_Renderer* renderer, TTF_Font* font, const lan::Frame& frame)
 }
 }
 
-void play_lan(SDL_Window* window, SDL_Renderer* renderer, TTF_Font* font,
-              bool hosting, bool& running, std::atomic<bool>& beeping) {
+void play_lan(SDL_Window* window, SDL_Renderer* renderer, TTF_Font* font, TTF_Font* large_font, bool hosting, bool& running, std::atomic<bool>& beeping) {
     beeping = false;
     std::string address;
-    if (!hosting && !enter_address(renderer, font, running, address)) return;
+    if (!hosting && !enter_address(renderer, font, large_font, running, address))
+        return;
+
     if (hosting) {
         std::ifstream rom("roms/Pong.ch8", std::ios::binary | std::ios::ate);
         if (!rom || rom.tellg() <= 0 || rom.tellg() > 3584) {
             show_error(renderer, font, running, "Cannot read roms/Pong.ch8"); return;
         }
     }
+
     lan::Connection connection;
-    if (hosting) connection.host(); else connection.join(address);
+    if (hosting)
+        connection.host();
+    else
+        connection.join(address);
+
     Chip8 chip8;
-    if (hosting && !connection.failed()) chip8.load_rom("roms/Pong.ch8");
+    if (hosting && !connection.failed())
+        chip8.load_rom("roms/Pong.ch8");
+        
     lan::Frame frame;
     bool playing = true, started = false, focused = true;
     uint8_t held = 0;
@@ -138,8 +154,7 @@ void play_lan(SDL_Window* window, SDL_Renderer* renderer, TTF_Font* font,
         connection.poll();
         if (connection.failed()) break;
         if (!connection.ready()) {
-            screen(renderer, font, hosting ? "Host Pong" : "Join Pong", connection.status(),
-                   hosting ? "Guest enters your Wi-Fi IPv4 address. Esc: cancel" : "Esc: cancel");
+            screen(renderer, font, hosting ? "HOST GAME" : "JOIN LOBY", connection.status(), hosting ? "GUEST ENTERS YOUR IPV4 ADDRESS. ESC: CANCEL" : "Esc: cancel");
             SDL_Delay(10); continue;
         }
         if (!started) {
@@ -148,7 +163,6 @@ void play_lan(SDL_Window* window, SDL_Renderer* renderer, TTF_Font* font,
         }
         const double now = double(SDL_GetPerformanceCounter());
         if (now >= next_tick) {
-            // Drop excessive catch-up work after a stall to keep the UI responsive.
             next_tick += tick;
             if (now - next_tick > tick * 3) next_tick = now + tick;
             if (hosting) {
